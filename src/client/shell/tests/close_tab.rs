@@ -97,6 +97,24 @@ fn hovering_a_tab_shows_a_close_button_that_closes_that_tab() {
 }
 
 #[test]
+fn tab_marker_and_close_button_have_a_space_on_each_side() {
+    let mut state = close_state(false, 2);
+    let mut projected = state.snapshot.as_deref().unwrap().clone();
+    projected.tabs[0].agent_status = crate::api::schema::AgentStatus::Working;
+    state.set_snapshot(Box::new(projected));
+    state.compose(106, 24).unwrap();
+    let tab_rect = state.hits.tabs[0].0;
+    hover(&mut state, tab_rect.x + 1, tab_rect.y);
+    let frame = state.compose(106, 24).unwrap();
+    let row: Vec<char> = frame_rows(&frame)[tab_rect.y as usize].chars().collect();
+    let tab: String = row[tab_rect.x as usize..tab_rect.right() as usize].iter().collect();
+    assert!(tab.starts_with(" ● "), "marker spaced from the left edge: {tab:?}");
+    assert!(tab.ends_with(" × "), "× spaced from title and right edge: {tab:?}");
+    let title = tab[" ● ".len()..tab.len() - " × ".len()].trim();
+    assert!(!title.is_empty(), "title still visible: {tab:?}");
+}
+
+#[test]
 fn tab_close_button_stays_hidden_while_a_modal_is_open() {
     let mut state = close_state(false, 2);
     let tab_rect = state.hits.tabs[0].0;

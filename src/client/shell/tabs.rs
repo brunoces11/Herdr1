@@ -1,8 +1,9 @@
 use super::*;
 
 const TAB_SCROLL_BUTTON_WIDTH: u16 = 3;
-const TAB_STATUS_WIDTH: u16 = 2;
-const TAB_CLOSE_WIDTH: u16 = 2;
+// Herdr1 tab layout: " ● " + title + " × " (one space on each side of marker and close button).
+const TAB_STATUS_WIDTH: u16 = 3;
+const TAB_CLOSE_WIDTH: u16 = 3;
 const MIN_TAB_TITLE_WIDTH: u16 = 6; // Claude has six characters.
 const MIN_TAB_STRIP_WIDTH: u16 =
     MIN_TAB_WIDTH + NEW_TAB_WIDTH + TAB_SCROLL_BUTTON_WIDTH.saturating_mul(2);
@@ -42,10 +43,10 @@ mod status_marker_tests {
 
     #[test]
     fn short_titles_share_a_stable_width_and_long_titles_expand() {
-        assert_eq!(tab_desired_width("AGI"), 10);
-        assert_eq!(tab_desired_width("Codex"), 10);
-        assert_eq!(tab_desired_width("Claude"), 10);
-        assert_eq!(tab_desired_width("Long title"), 14);
+        assert_eq!(tab_desired_width("AGI"), 12);
+        assert_eq!(tab_desired_width("Codex"), 12);
+        assert_eq!(tab_desired_width("Claude"), 12);
+        assert_eq!(tab_desired_width("Long title"), 16);
     }
 }
 
@@ -165,7 +166,7 @@ pub(crate) fn render_tab_bar(
         let padding = title_width.saturating_sub(display_width(&name));
         let left = padding / 2;
         let text = format!(
-            "  {empty:left$}{name}{empty:right_padding$}  ",
+            "   {empty:left$}{name}{empty:right_padding$}   ",
             empty = "",
             left = left as usize,
             right_padding = padding.saturating_sub(left) as usize,
@@ -175,17 +176,15 @@ pub(crate) fn render_tab_bar(
             && hovered_tab_id == Some(tab.tab_id.as_str())
             && width >= desired
         {
-            let close_rect = Rect::new(
-                rect.right().saturating_sub(TAB_CLOSE_WIDTH),
-                rect.y,
-                TAB_CLOSE_WIDTH,
-                1,
-            );
-            put_text(buffer, close_rect.x, rect.y, 1, "×", style);
+            // " × ": the leading space separates × from the title; the click target
+            // covers × and its trailing space so it stays easy to hit.
+            let close_x = rect.right().saturating_sub(TAB_CLOSE_WIDTH - 1);
+            let close_rect = Rect::new(close_x, rect.y, TAB_CLOSE_WIDTH - 1, 1);
+            put_text(buffer, close_x, rect.y, 1, "×", style);
             hits.tab_closes.push((close_rect, tab.tab_id.clone()));
         }
         if let Some(color) = marker {
-            let marker_x = rect.x;
+            let marker_x = rect.x.saturating_add(1);
             if marker_x < rect.right() {
                 put_text(buffer, marker_x, rect.y, 1, "●", style.fg(color));
             }
