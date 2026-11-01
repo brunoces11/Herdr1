@@ -222,6 +222,34 @@ fn status_text(status: crate::api::schema::AgentStatus) -> &'static str {
     }
 }
 
+/// Herdr1: brightness multiplier for the idle status icon (+17%).
+const IDLE_STATUS_BRIGHTNESS: f32 = 1.17;
+
+/// Scales an RGB color's brightness; non-RGB (named/indexed) colors are returned unchanged.
+fn brighten(color: ratatui::style::Color, factor: f32) -> ratatui::style::Color {
+    match color {
+        ratatui::style::Color::Rgb(r, g, b) => {
+            let scale = |c: u8| (f32::from(c) * factor).round().clamp(0.0, 255.0) as u8;
+            ratatui::style::Color::Rgb(scale(r), scale(g), scale(b))
+        }
+        other => other,
+    }
+}
+
+#[cfg(test)]
+mod herdr1_status_color_tests {
+    use super::{status_color, Palette};
+    use crate::api::schema::AgentStatus;
+    use ratatui::style::Color;
+
+    #[test]
+    fn idle_icon_is_charcoal_seventeen_percent_brighter() {
+        let palette = Palette::catppuccin();
+        assert_eq!(palette.surface1, Color::Rgb(69, 71, 90));
+        assert_eq!(status_color(AgentStatus::Idle, &palette), Color::Rgb(81, 83, 105));
+    }
+}
+
 fn status_color(
     status: crate::api::schema::AgentStatus,
     palette: &Palette,
@@ -231,7 +259,9 @@ fn status_color(
         AgentStatus::Working => palette.yellow,
         AgentStatus::Blocked => palette.red,
         AgentStatus::Done => palette.teal,
-        AgentStatus::Idle => palette.green,
+        // Herdr1: idle (hollow ○) in a discreet, neutral charcoal instead of green,
+        // 17% brighter than the theme's surface1.
+        AgentStatus::Idle => brighten(palette.surface1, IDLE_STATUS_BRIGHTNESS),
         AgentStatus::Unknown => palette.overlay0,
     }
 }

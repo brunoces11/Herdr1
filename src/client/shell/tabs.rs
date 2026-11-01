@@ -15,30 +15,41 @@ fn tab_desired_width(name: &str) -> u16 {
         .max(MIN_TAB_WIDTH)
 }
 
-fn tab_status_color(status: crate::api::schema::AgentStatus) -> Option<ratatui::style::Color> {
+/// Herdr1: tab markers use the same theme colors as the sidebar (`status_color`):
+/// working = yellow, blocked = red, done (unseen) = teal. Idle/unknown show no marker.
+fn tab_status_color(
+    status: crate::api::schema::AgentStatus,
+    palette: &Palette,
+) -> Option<ratatui::style::Color> {
     use crate::api::schema::AgentStatus;
-    use ratatui::style::Color;
     match status {
-        AgentStatus::Working => Some(Color::White),
-        AgentStatus::Blocked => Some(Color::Yellow),
-        AgentStatus::Done => Some(Color::Rgb(45, 45, 45)),
+        AgentStatus::Working | AgentStatus::Blocked | AgentStatus::Done => {
+            Some(status_color(status, palette))
+        }
         AgentStatus::Idle | AgentStatus::Unknown => None,
     }
 }
 
 #[cfg(test)]
 mod status_marker_tests {
-    use super::{tab_desired_width, tab_status_color};
+    use super::{status_color, tab_desired_width, tab_status_color, Palette};
     use crate::api::schema::AgentStatus;
-    use ratatui::style::Color;
 
     #[test]
-    fn colors_follow_agent_status_without_guessing_errors() {
-        assert_eq!(tab_status_color(AgentStatus::Idle), None);
-        assert_eq!(tab_status_color(AgentStatus::Unknown), None);
-        assert_eq!(tab_status_color(AgentStatus::Working), Some(Color::White));
-        assert_eq!(tab_status_color(AgentStatus::Blocked), Some(Color::Yellow));
-        assert_eq!(tab_status_color(AgentStatus::Done), Some(Color::Rgb(45, 45, 45)));
+    fn tab_markers_match_sidebar_colors_and_hide_idle() {
+        let palette = Palette::catppuccin();
+        assert_eq!(tab_status_color(AgentStatus::Idle, &palette), None);
+        assert_eq!(tab_status_color(AgentStatus::Unknown, &palette), None);
+        assert_eq!(tab_status_color(AgentStatus::Working, &palette), Some(palette.yellow));
+        assert_eq!(tab_status_color(AgentStatus::Blocked, &palette), Some(palette.red));
+        assert_eq!(tab_status_color(AgentStatus::Done, &palette), Some(palette.teal));
+        for status in [AgentStatus::Working, AgentStatus::Blocked, AgentStatus::Done] {
+            assert_eq!(
+                tab_status_color(status, &palette),
+                Some(status_color(status, &palette)),
+                "tab and sidebar must agree for {status:?}"
+            );
+        }
     }
 
     #[test]
@@ -161,7 +172,7 @@ pub(crate) fn render_tab_bar(
         } else {
             Style::default().fg(palette.overlay0).bg(palette.surface0)
         };
-        let marker = tab_status_color(tab.agent_status);
+        let marker = tab_status_color(tab.agent_status, palette);
         let title_width = width.saturating_sub(TAB_STATUS_WIDTH + TAB_CLOSE_WIDTH);
         let padding = title_width.saturating_sub(display_width(&name));
         let left = padding / 2;
