@@ -4,6 +4,33 @@ const TAB_SCROLL_BUTTON_WIDTH: u16 = 3;
 const MIN_TAB_STRIP_WIDTH: u16 =
     MIN_TAB_WIDTH + NEW_TAB_WIDTH + TAB_SCROLL_BUTTON_WIDTH.saturating_mul(2);
 
+fn tab_status_color(status: crate::api::schema::AgentStatus) -> Option<ratatui::style::Color> {
+    use crate::api::schema::AgentStatus;
+    use ratatui::style::Color;
+    match status {
+        AgentStatus::Working => Some(Color::White),
+        AgentStatus::Blocked => Some(Color::Yellow),
+        AgentStatus::Done => Some(Color::Rgb(45, 45, 45)),
+        AgentStatus::Idle | AgentStatus::Unknown => None,
+    }
+}
+
+#[cfg(test)]
+mod status_marker_tests {
+    use super::tab_status_color;
+    use crate::api::schema::AgentStatus;
+    use ratatui::style::Color;
+
+    #[test]
+    fn colors_follow_agent_status_without_guessing_errors() {
+        assert_eq!(tab_status_color(AgentStatus::Idle), None);
+        assert_eq!(tab_status_color(AgentStatus::Unknown), None);
+        assert_eq!(tab_status_color(AgentStatus::Working), Some(Color::White));
+        assert_eq!(tab_status_color(AgentStatus::Blocked), Some(Color::Yellow));
+        assert_eq!(tab_status_color(AgentStatus::Done), Some(Color::Rgb(45, 45, 45)));
+    }
+}
+
 pub(crate) fn render_tab_bar(
     buffer: &mut Buffer,
     area: Rect,
@@ -25,7 +52,10 @@ pub(crate) fn render_tab_bar(
         .iter()
         .map(|tab| {
             let label = tab_label(tab);
-            display_width(&label).saturating_add(4).max(MIN_TAB_WIDTH)
+            display_width(&label)
+                .saturating_add(4)
+                .saturating_add(if tab_status_color(tab.agent_status).is_some() { 2 } else { 0 })
+                .max(MIN_TAB_WIDTH)
         })
         .collect::<Vec<_>>();
     let content = tab_bar_content_area(snapshot, area);
@@ -114,15 +144,23 @@ pub(crate) fn render_tab_bar(
         } else {
             Style::default().fg(palette.overlay0).bg(palette.surface0)
         };
-        let padding = width.saturating_sub(display_width(&name));
+        let marker = tab_status_color(tab.agent_status);
+        let label = if marker.is_some() { format!("● {name}") } else { name };
+        let padding = width.saturating_sub(display_width(&label));
         let left = padding / 2;
         let text = format!(
-            "{empty:left$}{name}{empty:right_padding$}",
+            "{empty:left$}{label}{empty:right_padding$}",
             empty = "",
             left = left as usize,
             right_padding = padding.saturating_sub(left) as usize,
         );
         put_text(buffer, rect.x, rect.y, rect.width, &text, style);
+        if let Some(color) = marker {
+            let marker_x = rect.x.saturating_add(left);
+            if marker_x < rect.right() {
+                put_text(buffer, marker_x, rect.y, 1, "●", style.fg(color));
+            }
+        }
         hits.tabs.push((rect, tab.tab_id.clone()));
         first_visible.get_or_insert(index);
         last_visible = Some(index);
