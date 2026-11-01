@@ -26,13 +26,16 @@ Step "build $build (branch $branch)"
 # 2. Compila release marcado com HERDR1_BUILD
 Assert-Zig
 $env:HERDR1_BUILD = $build
+# Pasta de build propria: nao conflita com o Herdr1 TESTE aberto (que trava target\release)
+# e evita recompilacoes cruzadas entre builds de teste e de deploy.
+$deployTarget = Join-Path $Herdr1Repo 'target\deploy'
 $sw = [Diagnostics.Stopwatch]::StartNew()
-$ok = Invoke-Cargo @('build', '--release', '--locked')
+$ok = Invoke-Cargo @('build', '--release', '--locked', '--target-dir', $deployTarget)
 Remove-Item Env:HERDR1_BUILD -ErrorAction SilentlyContinue
 if (-not $ok) { throw "Compilacao falhou. Nada foi publicado; HERDR2 continua como estava." }
 Step ("compilado em {0:N0}s" -f $sw.Elapsed.TotalSeconds)
 
-$built = Join-Path $Herdr1Repo 'target\release\herdr.exe'
+$built = Join-Path $deployTarget 'release\herdr.exe'
 $reported = (& $built --version).Trim()
 if ($reported -notlike "*herdr1 $build*") { throw "Executavel nao reporta a versao esperada ($build): '$reported'" }
 
