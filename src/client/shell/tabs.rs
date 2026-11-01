@@ -1,8 +1,17 @@
 use super::*;
 
 const TAB_SCROLL_BUTTON_WIDTH: u16 = 3;
+const TAB_STATUS_WIDTH: u16 = 2;
+const MIN_TAB_TITLE_WIDTH: u16 = 6; // Claude has six characters.
 const MIN_TAB_STRIP_WIDTH: u16 =
     MIN_TAB_WIDTH + NEW_TAB_WIDTH + TAB_SCROLL_BUTTON_WIDTH.saturating_mul(2);
+
+fn tab_desired_width(name: &str) -> u16 {
+    display_width(name)
+        .max(MIN_TAB_TITLE_WIDTH)
+        .saturating_add(TAB_STATUS_WIDTH)
+        .max(MIN_TAB_WIDTH)
+}
 
 fn tab_status_color(status: crate::api::schema::AgentStatus) -> Option<ratatui::style::Color> {
     use crate::api::schema::AgentStatus;
@@ -17,7 +26,7 @@ fn tab_status_color(status: crate::api::schema::AgentStatus) -> Option<ratatui::
 
 #[cfg(test)]
 mod status_marker_tests {
-    use super::tab_status_color;
+    use super::{tab_desired_width, tab_status_color};
     use crate::api::schema::AgentStatus;
     use ratatui::style::Color;
 
@@ -28,6 +37,14 @@ mod status_marker_tests {
         assert_eq!(tab_status_color(AgentStatus::Working), Some(Color::White));
         assert_eq!(tab_status_color(AgentStatus::Blocked), Some(Color::Yellow));
         assert_eq!(tab_status_color(AgentStatus::Done), Some(Color::Rgb(45, 45, 45)));
+    }
+
+    #[test]
+    fn short_titles_share_a_stable_width_and_long_titles_expand() {
+        assert_eq!(tab_desired_width("AGI"), 8);
+        assert_eq!(tab_desired_width("Codex"), 8);
+        assert_eq!(tab_desired_width("Claude"), 8);
+        assert_eq!(tab_desired_width("Long title"), 12);
     }
 }
 
@@ -52,10 +69,7 @@ pub(crate) fn render_tab_bar(
         .iter()
         .map(|tab| {
             let label = tab_label(tab);
-            display_width(&label)
-                .saturating_add(4)
-                .saturating_add(if tab_status_color(tab.agent_status).is_some() { 2 } else { 0 })
-                .max(MIN_TAB_WIDTH)
+            tab_desired_width(&label)
         })
         .collect::<Vec<_>>();
     let content = tab_bar_content_area(snapshot, area);
@@ -145,18 +159,18 @@ pub(crate) fn render_tab_bar(
             Style::default().fg(palette.overlay0).bg(palette.surface0)
         };
         let marker = tab_status_color(tab.agent_status);
-        let label = if marker.is_some() { format!("● {name}") } else { name };
-        let padding = width.saturating_sub(display_width(&label));
+        let title_width = width.saturating_sub(TAB_STATUS_WIDTH);
+        let padding = title_width.saturating_sub(display_width(&name));
         let left = padding / 2;
         let text = format!(
-            "{empty:left$}{label}{empty:right_padding$}",
+            "  {empty:left$}{name}{empty:right_padding$}",
             empty = "",
             left = left as usize,
             right_padding = padding.saturating_sub(left) as usize,
         );
         put_text(buffer, rect.x, rect.y, rect.width, &text, style);
         if let Some(color) = marker {
-            let marker_x = rect.x.saturating_add(left);
+            let marker_x = rect.x;
             if marker_x < rect.right() {
                 put_text(buffer, marker_x, rect.y, 1, "●", style.fg(color));
             }
