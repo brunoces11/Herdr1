@@ -69,6 +69,7 @@ impl ClientShellState {
             sidebar_collapsed: false,
             sidebar_section_split: self.sidebar_section_split,
             tab_drag_insert_index: None,
+            hovered_tab_id: None,
             selected_workspace_id: self
                 .navigate_workspace_id
                 .as_ref()
@@ -225,6 +226,10 @@ impl ClientShellState {
                 sidebar_collapsed: self.sidebar_collapsed,
                 sidebar_section_split: self.sidebar_section_split,
                 tab_drag_insert_index,
+                hovered_tab_id: self
+                    .hovered_tab_id
+                    .as_deref()
+                    .filter(|_| self.overlay.is_none()),
                 selected_workspace_id: self
                     .navigate_workspace_id
                     .as_ref()
@@ -334,6 +339,7 @@ impl ClientShellState {
         };
         if mode_bar == Some(layout.tab_bar) {
             self.hits.tabs.clear();
+            self.hits.tab_closes.clear();
             self.hits.new_tab = Rect::default();
             self.hits.tab_scroll_left = Rect::default();
             self.hits.tab_scroll_right = Rect::default();

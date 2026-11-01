@@ -65,6 +65,48 @@ fn assert_tab_close(outcome: &ClientShellInput) {
     assert!(matches!(methods.as_slice(), [Method::TabClose(target)] if target.tab_id == "tab_1"));
 }
 
+fn hover(state: &mut ClientShellState, column: u16, row: u16) -> ClientShellInput {
+    state.handle_raw_events(vec![crate::raw_input::RawInputEvent::Mouse(MouseEvent {
+        kind: MouseEventKind::Moved,
+        column,
+        row,
+        modifiers: KeyModifiers::empty(),
+    })])
+}
+
+#[test]
+fn hovering_a_tab_shows_a_close_button_that_closes_that_tab() {
+    let mut state = close_state(false, 2);
+    assert!(state.hits.tab_closes.is_empty(), "no × before hover");
+    let tab_rect = state.hits.tabs[0].0;
+
+    let moved = hover(&mut state, tab_rect.x + 1, tab_rect.y);
+    assert!(moved.repaint, "hover must request a repaint");
+    let frame = state.compose(106, 24).unwrap();
+    let rows = frame_rows(&frame);
+    assert!(rows[tab_rect.y as usize].contains('×'), "× drawn: {:?}", rows[tab_rect.y as usize]);
+    assert_eq!(state.hits.tab_closes.len(), 1, "only the hovered tab gets ×");
+    let close_rect = state.hits.tab_closes[0].0;
+    assert_eq!(state.hits.tab_closes[0].1, "tab_1");
+
+    assert_tab_close(&click(&mut state, close_rect));
+
+    hover(&mut state, 0, 23);
+    state.compose(106, 24).unwrap();
+    assert!(state.hits.tab_closes.is_empty(), "× hidden after leaving");
+}
+
+#[test]
+fn tab_close_button_stays_hidden_while_a_modal_is_open() {
+    let mut state = close_state(false, 2);
+    let tab_rect = state.hits.tabs[0].0;
+    state.open_tab_context_menu("tab_1".into(), 30, 5);
+    state.compose(106, 24).unwrap();
+    hover(&mut state, tab_rect.x + 1, tab_rect.y);
+    state.compose(106, 24).unwrap();
+    assert!(state.hits.tab_closes.is_empty());
+}
+
 #[test]
 fn last_tab_close_waits_for_keyboard_or_mouse_confirmation() {
     for menu in [false, true] {

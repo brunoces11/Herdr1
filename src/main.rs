@@ -569,6 +569,13 @@ fn main() -> io::Result<()> {
     }
 
     if args.get(1).map(|s| s.as_str()) == Some("update") {
+        // Herdr1: self-update would install upstream Herdr over this fork.
+        eprintln!(
+            "herdr update is disabled in Herdr1 ({}). Deploy with herdr1\\deploy.ps1 instead.",
+            crate::build_info::herdr1_build()
+        );
+        std::process::exit(2);
+        #[allow(unreachable_code)]
         let options = match update::parse_self_update_args(&args[2..]) {
             Ok(options) => options,
             Err(err) if err.starts_with("usage:") => {
@@ -715,7 +722,7 @@ fn main() -> io::Result<()> {
 
     if args.iter().any(|a| a == "--version" || a == "-V") {
         platform::begin_cli_output();
-        println!("herdr {}", crate::build_info::version());
+        println!("{}", crate::build_info::version_line());
         return Ok(());
     }
 

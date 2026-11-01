@@ -504,7 +504,15 @@ pub(super) fn windows_vti_input_backend_enabled() -> bool {
 
 #[cfg(any(windows, test))]
 pub(super) fn windows_virtual_terminal_input_mode(mode: u32) -> u32 {
-    mode | 0x0200
+    // Herdr1: ENABLE_VIRTUAL_TERMINAL_INPUT, plus mouse input with QuickEdit off.
+    // With QuickEdit on (conhost default), the console eats every mouse event,
+    // so clicks and hover never reach Herdr. The original mode is restored on exit.
+    const ENABLE_MOUSE_INPUT: u32 = 0x0010;
+    const ENABLE_QUICK_EDIT_MODE: u32 = 0x0040;
+    const ENABLE_EXTENDED_FLAGS: u32 = 0x0080;
+    const ENABLE_VIRTUAL_TERMINAL_INPUT: u32 = 0x0200;
+    (mode | ENABLE_VIRTUAL_TERMINAL_INPUT | ENABLE_EXTENDED_FLAGS | ENABLE_MOUSE_INPUT)
+        & !ENABLE_QUICK_EDIT_MODE
 }
 
 #[cfg(windows)]

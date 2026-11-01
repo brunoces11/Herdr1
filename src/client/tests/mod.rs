@@ -112,9 +112,10 @@ impl Drop for EnvVarGuard {
 }
 
 #[test]
-fn windows_virtual_terminal_input_mode_sets_only_vti_bit() {
-    assert_eq!(windows_virtual_terminal_input_mode(0x01f0), 0x03f0);
-    assert_eq!(windows_virtual_terminal_input_mode(0x03f0), 0x03f0);
+fn windows_virtual_terminal_input_mode_enables_vti_and_mouse_without_quick_edit() {
+    assert_eq!(windows_virtual_terminal_input_mode(0x01f0), 0x03b0);
+    assert_eq!(windows_virtual_terminal_input_mode(0x03f0), 0x03b0);
+    assert_eq!(windows_virtual_terminal_input_mode(0x0007), 0x0297);
 }
 
 #[test]

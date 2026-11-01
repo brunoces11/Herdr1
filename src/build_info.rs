@@ -20,6 +20,15 @@ pub fn version() -> String {
     }
 }
 
+/// Herdr1 fork marker. `HERDR1_BUILD` is set by the deploy script (e.g. `20261101-1830-abc1234`).
+pub fn herdr1_build() -> &'static str {
+    non_empty(option_env!("HERDR1_BUILD")).unwrap_or("dev")
+}
+
+pub fn version_line() -> String {
+    format!("herdr {} (herdr1 {})", version(), herdr1_build())
+}
+
 pub fn is_preview() -> bool {
     channel() == "preview"
 }

@@ -654,6 +654,20 @@ impl ClientShellState {
     pub(super) fn handle_mouse(&mut self, mouse: MouseEvent, outcome: &mut ClientShellInput) {
         self.update_link_hover(mouse, outcome);
         let point = (mouse.column, mouse.row);
+        // Herdr1: track the hovered tab for its close button; never while a modal is open.
+        let hovered = (self.config.mouse_capture && self.overlay.is_none())
+            .then(|| {
+                self.hits
+                    .tabs
+                    .iter()
+                    .find(|(rect, _)| super::contains(*rect, point))
+                    .map(|(_, tab_id)| tab_id.clone())
+            })
+            .flatten();
+        if hovered != self.hovered_tab_id {
+            self.hovered_tab_id = hovered;
+            outcome.repaint = true;
+        }
         if self.mode == ClientShellMode::Navigate
             && self.workspace_preview_action_blocked()
             && self.overlay.is_none()
@@ -2082,6 +2096,22 @@ impl ClientShellState {
                     });
                 if let Some(workspace_press) = workspace_press {
                     self.workspace_press = Some(workspace_press);
+                    return;
+                }
+                let close_tab_id = self
+                    .config
+                    .mouse_capture
+                    .then(|| {
+                        self.hits
+                            .tab_closes
+                            .iter()
+                            .find(|(rect, _)| super::contains(*rect, point))
+                            .map(|(_, tab_id)| tab_id.clone())
+                    })
+                    .flatten();
+                if let Some(tab_id) = close_tab_id {
+                    self.request_tab_close(tab_id, outcome);
+                    outcome.repaint = true;
                     return;
                 }
                 let tab_press = self
